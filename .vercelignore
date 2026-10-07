@@ -12,3 +12,8 @@ Wooplix_Proposal_Agent_Guide.docx
 .venv/
 .state/
 *.sqlite*
+node_modules/
+.agents/
+.opencode/
+.neon
+skills-lock.json

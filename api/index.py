@@ -1,5 +1,6 @@
 """Vercel API for turning one or more requirement files into a ZIP result folder."""
 import io
+import hmac
 import json
 import os
 import re
@@ -9,7 +10,7 @@ import zipfile
 from pathlib import Path
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, Request, UploadFile
 from typing import Optional, List
 from fastapi.responses import FileResponse, HTMLResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +28,7 @@ import graph_runtime
 import multi_agent_graph
 import workflow_view
 import telegram_bot
+import telegram_cloud
 from graph_schemas import Analysis, validate_answers
 
 @asynccontextmanager
@@ -160,13 +162,43 @@ def logo():
 @app.get("/api/index.py")
 def health():
     bot = getattr(app.state, "telegram", None)
+    backend = graph_runtime.storage_backend()
+    cloud = bool(os.environ.get("VERCEL") or os.environ.get("TELEGRAM_MODE") == "webhook")
+    telegram_status = ("webhook_ready" if os.environ.get("TELEGRAM_WEBHOOK_SECRET") and os.environ.get("DATABASE_URL")
+                       and os.environ.get("TELEGRAM_BOT_TOKEN") else "configuration_required") if cloud else (bot.status if bot else "disabled")
     return {"ok": True, "configured": bool(agent.GROQ_API_KEY), "max_files": MAX_FILES,
             "orchestrator": "langgraph-multi-agent",
             "specialists": ["solution_architect", "delivery_estimator",
                             "commercial_analyst", "risk_and_dependency"],
-            "persistent_reviews": "graph_cli.py and /api/agent/* (SQLite)",
+            "persistent_reviews": f"graph_cli.py and /api/agent/* ({backend})",
+            "storage": {"backend": backend, "configured": backend == "sqlite" or bool(os.environ.get("DATABASE_URL"))},
             "telegram": {"configured": bool(os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()),
-                         "status": bot.status if bot else "disabled", "username": bot.username if bot else None}}
+                         "mode": "webhook" if cloud else "polling", "status": telegram_status,
+                         "username": bot.username if bot else os.environ.get("TELEGRAM_BOT_USERNAME")}}
+
+
+@app.post("/api/telegram/webhook")
+async def telegram_webhook(request: Request, background_tasks: BackgroundTasks):
+    secret = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
+    if not secret or not os.environ.get("TELEGRAM_BOT_TOKEN"):
+        raise HTTPException(503, "Configure TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET first.")
+    provided = request.headers.get("X-Telegram-Bot-Api-Secret-Token", "")
+    if not hmac.compare_digest(secret.encode(), provided.encode()):
+        raise HTTPException(401, "Invalid Telegram webhook secret.")
+    try:
+        update = await request.json()
+    except ValueError as exc:
+        raise HTTPException(400, "Supply a Telegram update JSON object.") from exc
+    if not isinstance(update, dict) or type(update.get("update_id")) is not int or update["update_id"] < 0:
+        raise HTTPException(400, "Supply a valid Telegram update_id.")
+    try:
+        bot = await run_in_threadpool(telegram_cloud.get_bot)
+        claimed = await run_in_threadpool(bot.store.claim_update, update["update_id"])
+    except Exception as exc:
+        raise HTTPException(503, "Telegram storage is unavailable. Check DATABASE_URL and try again.") from exc
+    if claimed:
+        background_tasks.add_task(telegram_cloud.process_update, bot, update)
+    return {"ok": True}
 
 
 @app.post("/api/agent/start")

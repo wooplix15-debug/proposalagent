@@ -235,12 +235,15 @@ class TelegramBot:
             self.telegram.call("answerCallbackQuery", {"callback_query_id": callback["id"]})
         with self.lock:
             busy = chat_id in self.active
+            owner = str(uuid4())
+            if not busy and hasattr(self.store, "acquire"):
+                busy = not self.store.acquire(chat_id, owner)
             if not busy:
                 self.active.add(chat_id)
         if busy:
             self.telegram.message(chat_id, "Your agent is still working. I'll send the next step when it finishes.")
             return
-        return chat_id, user, message, callback
+        return chat_id, user, message, callback, owner
 
     def handle_update(self, update):
         context = self.reserve_update(update)
@@ -248,7 +251,7 @@ class TelegramBot:
             self.process_reserved(context)
 
     def process_reserved(self, context):
-        chat_id, user, message, callback = context
+        chat_id, user, message, callback, owner = context
         try:
             self._handle(chat_id, user, message, callback)
         except BotError as exc:
@@ -259,6 +262,8 @@ class TelegramBot:
         finally:
             with self.lock:
                 self.active.discard(chat_id)
+            if hasattr(self.store, "release"):
+                self.store.release(chat_id, owner)
 
     def _saved(self, chat, session):
         if not session["thread_id"]:
@@ -463,6 +468,8 @@ class PollingService:
 
 
 def start_configured_bot():
+    if os.environ.get("VERCEL") or os.environ.get("TELEGRAM_MODE") == "webhook":
+        return None
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
     if not token or os.environ.get("TELEGRAM_POLLING_ENABLED", "1").lower() in {"0", "false", "no"}:
         return None

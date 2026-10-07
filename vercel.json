@@ -1,8 +1,11 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
   "functions": {
     "api/index.py": {
       "maxDuration": 300,
-      "includeFiles": "{project_delivery_data.json,market_delivery_benchmarks.json}"
+      "includeFiles": "{project_delivery_data.json,market_delivery_benchmarks.json,migrations/**,public/**,*.png,*.docx}",
+      "excludeFiles": "{node_modules/**,.agents/**,.opencode/**,.neon,skills-lock.json,tests/**,out/**,.state/**,.venv/**,vendor/**,*.ipynb,.env*}"
     },
     "api/pdf.php": {
       "runtime": "vercel-php@0.9.0"
@@ -10,8 +13,6 @@
   },
   "rewrites": [
     { "source": "/api/pdf.php", "destination": "/api/pdf.php" },
-    { "source": "/api/index.py", "destination": "/api/index.py" },
-    { "source": "/api/(.*)", "destination": "/api/index.py/$1" },
-    { "source": "/(.*)", "destination": "/api/index.py" }
+    { "source": "/workflow", "destination": "/workflow.html" }
   ]
 }

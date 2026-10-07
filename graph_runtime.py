@@ -1,9 +1,4 @@
-"""Local SQLite-backed LangGraph runtime.
-
-SQLite is intentionally used for the local/internal prototype so there is no
-separate database service to install. Set LANGGRAPH_SQLITE_PATH to move the
-file. Production deployments should replace this checkpointer with Postgres.
-"""
+"""SQLite locally; durable PostgreSQL checkpoints for the deployed app."""
 from __future__ import annotations
 
 import os
@@ -25,14 +20,28 @@ _CONNECTION = None
 _INIT_LOCK = Lock()
 
 
+def storage_backend():
+    backend = os.environ.get("LANGGRAPH_STORAGE") or ("postgres" if os.environ.get("VERCEL") else "sqlite")
+    if backend not in {"postgres", "sqlite"}:
+        raise RuntimeError("LANGGRAPH_STORAGE must be postgres or sqlite.")
+    if os.environ.get("VERCEL") and backend != "postgres":
+        raise RuntimeError("Vercel requires PostgreSQL persistence; set LANGGRAPH_STORAGE=postgres.")
+    return backend
+
+
 def get_graph():
-    """Return one process-local graph using the SQLite checkpointer."""
+    """Reuse a compiled graph; cloud data is retained in PostgreSQL, not memory."""
     global _GRAPH, _CONNECTION
     with _INIT_LOCK:
         if _GRAPH is None:
-            DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-            _CONNECTION = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30)
-            checkpointer = SqliteSaver(_CONNECTION)
-            checkpointer.setup()
+            if storage_backend() == "postgres":
+                from langgraph.checkpoint.postgres import PostgresSaver
+                from postgres_runtime import get_pool
+                checkpointer = PostgresSaver(get_pool())
+            else:
+                DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+                _CONNECTION = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=30)
+                checkpointer = SqliteSaver(_CONNECTION)
+                checkpointer.setup()
             _GRAPH = multi_agent_graph.build_graph(checkpointer=checkpointer)
     return _GRAPH

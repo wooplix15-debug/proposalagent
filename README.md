@@ -115,6 +115,85 @@ access. Run one local API process/poller per bot token. Set
 `TELEGRAM_POLLING_ENABLED=0` to disable polling, and update
 `TELEGRAM_AGENT_BASE_URL` if you change the server port.
 
+## Deploy on Vercel with Neon
+
+Import **`wooplix15-debug/proposalagent`** into a Vercel project named
+`proposalagent`. Use the repository root and the **FastAPI** framework preset.
+The older Vercel project named `proposal` is connected to a different repository.
+Once this repository is connected, pushes to `main` trigger production deploys.
+
+The app uses **PostgreSQL on Neon** for deployed LangGraph checkpoints,
+Telegram conversations, duplicate-update records and cross-instance chat
+leases. Local runs retain SQLite unless `LANGGRAPH_STORAGE=postgres` is set.
+Vercel never starts a polling thread or stores cases in its temporary filesystem.
+
+This workspace is linked to Neon project `autumn-scene-20709366`, branch
+`production`. `neon.ts` intentionally declares `defineConfig({})`: Postgres is
+the required Neon service. App migrations are managed in code by the official
+LangGraph PostgreSQL checkpointer and `migrations/001_telegram.sql`.
+
+### Environment variables
+
+After `neon link` has pulled the database URLs into the private local `.env`:
+
+```bash
+.venv/bin/python make_vercel_env.py
+```
+
+This creates **`.env.vercel`** with mode `600`. Import its contents into
+**Vercel → Settings → Environment Variables → Production**, then deploy.
+The file contains the actual model/bot credentials and generated renderer and
+webhook secrets; it is ignored by Git. Re-running preserves the generated
+secrets so the app and Telegram registration stay in sync.
+
+Required cloud settings:
+
+| Variable | Value/purpose |
+|---|---|
+| `GROQ_API_KEY` | Your Groq key |
+| `GROQ_MODEL` | `openai/gpt-oss-120b` |
+| `DATABASE_URL` | Pooled Neon endpoint for application requests |
+| `DATABASE_URL_UNPOOLED` | Direct Neon endpoint for schema setup |
+| `LANGGRAPH_STORAGE` | `postgres` |
+| `TELEGRAM_BOT_TOKEN` | BotFather token |
+| `TELEGRAM_BOT_USERNAME` | `Proposalwooplix_bot` |
+| `TELEGRAM_MODE` | `webhook` |
+| `TELEGRAM_POLLING_ENABLED` | `0` |
+| `TELEGRAM_WEBHOOK_SECRET` | Generated secret for Telegram's request header |
+| `PDF_RENDER_TOKEN` | Generated bearer token for the PHP/Dompdf function |
+
+Vercel supplies the production/deployment hostname automatically. If using
+another host, set `APP_BASE_URL` to the public HTTPS URL. `NEON_BRANCH` is
+included as workspace context but is not required by the Python runtime.
+
+### Connect Telegram after deployment
+
+1. Verify `https://YOUR-DEPLOYMENT/api/health` reports PostgreSQL storage and
+   Telegram `webhook_ready`. This indicates configuration is present; it does
+   not register the webhook automatically.
+2. Stop local polling (`TELEGRAM_POLLING_ENABLED=0` in the local `.env`, then
+   restart the local app) before switching the bot to its public webhook.
+3. Register the URL using the same private env copy imported into Vercel:
+
+   ```bash
+   .venv/bin/python configure_telegram_webhook.py --base-url https://YOUR-DEPLOYMENT
+   ```
+
+4. Open the bot, send `/start`, and test a proposal or BRD.
+
+`POST /api/telegram/webhook` checks Telegram's secret header, records the
+update ID in PostgreSQL and schedules ASGI background processing. Duplicate
+deliveries are acknowledged without repeating the action. A chat lease prevents
+simultaneous instances from treating an early reply as an answer to the next
+stage. Leases expire after a terminated invocation. Saved checkpoints and
+`/status` / `/retry` support recovery from model failures or function timeouts.
+Vercel function execution is configured for up to 300 seconds per request.
+
+DOCX is rendered in Python. PDF uses the separate authenticated
+`api/pdf.php` Dompdf function, with Composer dependencies resolved by its PHP
+runtime; ZIP includes DOCX, PDF and audit JSON. The workspace is at `/` and the
+interactive agent diagram is at `/workflow`.
+
 ## Multi-agent workflow
 
 ```text
@@ -173,7 +252,9 @@ citations are not yet implemented. Proposed details are not client approvals.
 | `multi_agent_specialists.py` | Role-specific structured model calls |
 | `multi_agent_contracts.py` | Typed specialist finding contracts |
 | `multi_agent_tools.py` | Stable source IDs, grounding, locked repairs and shared planning tables |
-| `graph_runtime.py` | Local SQLite checkpoint runtime |
+| `graph_runtime.py` | SQLite/PostgreSQL checkpoint selection |
+| `postgres_runtime.py` | Cloud connection pool and serialized schema setup |
+| `telegram_cloud.py` | PostgreSQL conversation state, webhook deduplication and chat leases |
 | `telegram_bot.py` | Telegram polling, persistent conversations and reviewed downloads |
 | `graph_cli.py` | Persistent terminal workflow |
 | `agent_graph.py` | Shared single-workflow analysis and structural validation helpers |
@@ -191,6 +272,7 @@ citations are not yet implemented. Proposed details are not client approvals.
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/health` | Configuration and specialist information |
+| `POST /api/telegram/webhook` | Authenticated Telegram webhook with durable deduplication |
 | `GET /api/agent/workflow?thread_id=CASE_ID` | Actual graph topology and optional saved execution overlay |
 | `POST /api/agent/start` | Start one case; multipart `text` or `files`, `document_type` |
 | `POST /api/agent/resume` | Resume human input; JSON `thread_id` and `response` |
@@ -266,12 +348,23 @@ use an already-reviewed case. This captures deliveries locally:
 .venv/bin/python telegram_smoke.py --thread-id REVIEWED_CASE_ID
 ```
 
+Verify cloud persistence on a Neon test branch before applying migrations to
+production. Supply an env file containing that branch's two database URLs:
+
+```bash
+.venv/bin/python postgres_smoke.py --env .env.neon-test
+```
+
+This checks checkpoint and conversation persistence after a pool restart,
+cross-instance chat leases and update deduplication. It removes only its own
+synthetic rows afterwards. Schema setup is idempotent and serialized using a
+direct-connection advisory lock.
+
 ## Next upgrades
 
 For wider company use: approved product/edition capabilities, a rate card,
-completed-project evidence, page-level citations, task-specific evaluations
-and a PostgreSQL checkpointer for multi-worker hosting. SQLite persistence is
-for local/single-server development; Vercel's filesystem is not durable storage.
+completed-project evidence, page-level citations and task-specific evaluations.
+SQLite persistence is for local development; deployed cases use PostgreSQL.
 
 LangGraph remains a good fit for state, review interrupts and controlled
 branching. Alternatives are a custom FastAPI state machine for simpler flows,

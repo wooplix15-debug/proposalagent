@@ -19,3 +19,8 @@ tmp/
 *.log
 .ipynb_checkpoints/
 *.pyc
+.neon
+node_modules/
+.agents/
+.opencode/
+skills-lock.json
