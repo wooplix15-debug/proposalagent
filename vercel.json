@@ -12,7 +12,6 @@
     }
   },
   "rewrites": [
-    { "source": "/api/pdf.php", "destination": "/api/pdf.php" },
-    { "source": "/workflow", "destination": "/workflow.html" }
+    { "source": "/api/pdf.php", "destination": "/api/pdf.php" }
   ]
 }
