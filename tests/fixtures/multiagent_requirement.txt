@@ -1,0 +1,29 @@
+Client: Demo Realty Private Limited
+Project: Sales Process Digitization
+
+Zoho CRM
+- Capture website and Meta lead enquiries.
+- Assign leads to sales executives using rules approved by the sales manager.
+- Track follow-up calls and site visit appointments.
+- Send WhatsApp site visit reminders; the provider must be confirmed.
+- Track deals with discount approval before closure.
+- There are 20 CRM users.
+
+Zoho Analytics
+- Build a lead-source dashboard and sales pipeline dashboard from CRM data.
+- KPI formulas and refresh frequency need client confirmation.
+
+Data Migration / Cleansing
+- Clean and migrate 8,000 lead records from Excel.
+- Deduplication and field mapping rules need client approval.
+
+Training
+- Train CRM sales executives and an administrator.
+
+Cost Proposal
+- Zoho CRM
+- Zoho Analytics
+- Data Migration / Cleansing
+- Training
+
+No approved prices, support period or final project schedule are supplied.

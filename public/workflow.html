@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <title>Wooplix · Agent Workflow</title>
+  <link rel="icon" href="/wooplix_logo.png">
+  <style>
+    :root { color-scheme: dark; --bg:#101827; --panel:#162032; --line:#2a3850; --text:#ecf1fb; --muted:#a0aec5; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.5 system-ui,-apple-system,sans-serif; }
+    button,input,select { font:inherit; }
+    button,a,input,select { outline-offset:4px; }
+    button,select,.link { border:1px solid var(--line); border-radius:8px; background:#1b2940; color:var(--text); padding:8px 12px; cursor:pointer; }
+    button:hover,.link:hover { background:#283955; }
+    button:disabled { opacity:.5; cursor:wait; }
+    a { color:#b9c5ff; }
+    .link { text-decoration:none; display:inline-block; }
+    header { display:flex; gap:20px; flex-wrap:wrap; align-items:center; justify-content:space-between; padding:18px 24px; border-bottom:1px solid var(--line); }
+    h1 { font-size:21px; letter-spacing:-.4px; margin:0; }
+    .subtitle { color:var(--muted); margin:4px 0 0; font-size:12px; }
+    .counts { display:flex; flex-wrap:wrap; gap:8px; }
+    .count { padding:6px 10px; border:1px solid #394b6a; border-radius:20px; color:#d6dffc; font-size:12px; }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; padding:12px 24px; border-bottom:1px solid var(--line); }
+    .tabs { display:flex; gap:4px; }
+    .tabs button[aria-pressed="true"] { background:#3d4a92; border-color:#97a4ff; }
+    form { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:auto; }
+    input { width:300px; max-width:100%; padding:8px 10px; background:#101827; color:var(--text); border:1px solid #465673; border-radius:8px; }
+    .error { color:#ffd5d5; background:#4b232d; padding:10px 24px; }
+    [hidden] { display:none!important; }
+    main { display:grid; grid-template-columns:minmax(0,1fr) 320px; height:calc(100dvh - 156px); min-height:590px; }
+    .canvas-wrap { position:relative; min-width:0; overflow:hidden; background-image:radial-gradient(#34405b 1px,transparent 1px); background-size:22px 22px; }
+    #canvas { width:100%; height:100%; display:block; touch-action:none; cursor:grab; }
+    #canvas:active { cursor:grabbing; }
+    .zoom { position:absolute; top:14px; left:14px; display:flex; gap:6px; align-items:center; padding:6px; background:#101827e8; border:1px solid var(--line); border-radius:12px; }
+    #zoomValue { width:44px; text-align:center; font-size:12px; color:var(--muted); }
+    .legend { position:absolute; left:14px; bottom:14px; right:14px; width:fit-content; max-width:calc(100% - 28px); background:#101827ee; border:1px solid var(--line); border-radius:12px; padding:8px 12px; font-size:11px; }
+    .legend-row { display:flex; flex-wrap:wrap; gap:13px; }
+    .legend small { display:block; margin-top:5px; color:var(--muted); }
+    .dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:5px; }
+    .agent { color:#aeb3ff; } .tool { color:#64dcc8; } .human { color:#f3c273; } .control { color:#b8c3d7; }
+    .idle { color:#8996ae; } .completed { color:#67df9b; } .waiting { color:#f3c273; } .pending { color:#80b5ff; } .failed { color:#ff898f; }
+    .dot { background:currentColor; }
+    aside { border-left:1px solid var(--line); background:var(--panel); overflow:auto; padding:20px; }
+    h2 { margin:0 0 8px; font-size:18px; } h3 { font-size:12px; text-transform:uppercase; letter-spacing:.7px; color:var(--muted); margin:24px 0 10px; }
+    p { margin:8px 0; }
+    .note { font-size:12px; color:var(--muted); }
+    .node .card { fill:#192438; stroke:#485972; stroke-width:2; }
+    .node .accent { stroke-width:4; }
+    .node.agent .accent { stroke:#aeb3ff; } .node.tool .accent { stroke:#64dcc8; }
+    .node.human .accent { stroke:#f3c273; } .node.control .accent { stroke:#b8c3d7; }
+    .node.completed .card { stroke:#67df9b; } .node.waiting .card { stroke:#f3c273; }
+    .node.pending .card { stroke:#80b5ff; } .node.failed .card { stroke:#ff898f; }
+    .node.selected .card,.node:focus .card { stroke:#fff; stroke-width:4; }
+    .node { cursor:pointer; outline:none; }
+    .node text { pointer-events:none; fill:#eff3fc; font-family:system-ui,sans-serif; }
+    .node .node-title { font-size:20px; font-weight:650; }
+    .node .node-subtitle { font-size:13px; fill:#a0aec5; }
+    .node .node-kind { font-size:12px; font-weight:700; }
+    .edge path { fill:none; stroke:#6e809d; stroke-width:2; }
+    .edge.conditional path { stroke-dasharray:7 5; }
+    .edge.selected path { stroke:#c0caff; stroke-width:3; }
+    .edge:hover path { stroke:#fff; }
+    .edge-label { font-size:14px; fill:#e2e9fc; paint-order:stroke; stroke:#101827; stroke-width:6px; opacity:0; }
+    .edge:hover .edge-label,.edge.selected .edge-label { opacity:1; }
+    .member { padding:12px 0; border-bottom:1px solid var(--line); }
+    .member strong { display:block; font-size:13px; }
+    code { color:#c1d2f1; font-size:11px; overflow-wrap:anywhere; }
+    .status { font-size:11px; text-transform:uppercase; letter-spacing:.5px; }
+    #trace { padding-left:20px; font-size:12px; color:#cbd6e8; }
+    #trace li { margin-bottom:9px; overflow-wrap:anywhere; }
+    #trace li.match { color:#d5d6ff; font-weight:600; }
+    #caseSummary { font-size:12px; overflow-wrap:anywhere; }
+    #caseSummary strong { display:block; }
+    @media (max-width:900px) {
+      main { grid-template-columns:1fr 270px; }
+      header,.toolbar { padding:12px; } input { width:235px; }
+    }
+    @media (max-width:680px) {
+      main { display:flex; flex-direction:column; height:auto; }
+      .canvas-wrap { height:65dvh; min-height:430px; }
+      aside { border-left:0; border-top:1px solid var(--line); overflow:visible; }
+      form { margin-left:0; } .counts { gap:5px; } h1 { font-size:19px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>Wooplix · Agent Workflow</h1><p class="subtitle">Inspect the agents, tools and human checkpoints in your LangGraph workflow.</p></div>
+    <div class="counts" id="counts" aria-live="polite"></div>
+    <a class="link" href="/">← Document workspace</a>
+  </header>
+  <div class="toolbar">
+    <div class="tabs" aria-label="Diagram detail">
+      <button id="overviewMode" aria-pressed="true">Agent overview</button>
+      <button id="exactMode" aria-pressed="false">Exact graph nodes</button>
+    </div>
+    <form id="caseForm">
+      <label for="threadInput" class="note">Saved case</label>
+      <input id="threadInput" placeholder="Thread ID" autocomplete="off">
+      <button type="submit" id="loadCase">Load / refresh</button>
+      <button type="button" id="recentCase" title="Use the case saved by the document workspace">Last case</button>
+      <button type="button" id="architecture">Architecture</button>
+    </form>
+  </div>
+  <div id="error" class="error" role="alert" hidden></div>
+  <main>
+    <section class="canvas-wrap" aria-label="Workflow canvas">
+      <svg id="canvas" aria-label="Interactive agent workflow; click nodes to inspect" tabindex="0">
+        <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#99a9c4"/></marker></defs>
+        <g id="world"></g>
+      </svg>
+      <div class="zoom" aria-label="Canvas controls">
+        <button id="zoomOut" aria-label="Zoom out">−</button><span id="zoomValue">100%</span>
+        <button id="zoomIn" aria-label="Zoom in">+</button><button id="fit">Fit all</button>
+        <button id="focus">Focus node</button>
+      </div>
+      <div class="legend">
+        <div class="legend-row"><span class="agent"><i class="dot"></i>AI role</span><span class="tool"><i class="dot"></i>Tool</span><span class="human"><i class="dot"></i>Human</span><span class="control"><i class="dot"></i>Control</span></div>
+        <div class="legend-row" style="margin-top:5px"><span class="completed"><i class="dot"></i>Ran</span><span class="waiting"><i class="dot"></i>Waiting</span><span class="pending"><i class="dot"></i>Pending</span><span class="failed"><i class="dot"></i>Failed</span></div>
+        <small>Drag the background to pan · Scroll to zoom · Click a node for details</small>
+      </div>
+    </section>
+    <aside aria-label="Node details and saved execution">
+      <h2 id="detailTitle">Supervisor Agent</h2>
+      <p id="detailKind" class="status"></p>
+      <p class="note" id="modeNote"></p>
+      <div id="members"></div>
+      <h3>How to count the agents</h3>
+      <p class="note" id="countExplanation"></p>
+      <h3>Saved execution</h3>
+      <div id="caseSummary">Load a case to highlight completed, waiting and failed steps.</div>
+      <ol id="trace"></ol>
+    </aside>
+  </main>
+  <script>
+    const $ = id => document.getElementById(id);
+    const NS = 'http://www.w3.org/2000/svg';
+    const W = 300, H = 108;
+    const colors = {agent:'#aeb3ff', tool:'#64dcc8', human:'#f3c273', control:'#b8c3d7',
+      idle:'#8996ae', completed:'#67df9b', waiting:'#f3c273', pending:'#80b5ff', failed:'#ff898f'};
+    let data = null, mode = 'overview', selected = 'supervisor', view = {x:0, y:0, scale:1};
+    let drag = null, requestNumber = 0;
+    function svg(tag, attrs = {}, text) {
+      const el = document.createElementNS(NS, tag);
+      for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+      if (text !== undefined) el.textContent = text;
+      return el;
+    }
+    function html(tag, className, text) {
+      const el = document.createElement(tag); if (className) el.className = className;
+      if (text !== undefined) el.textContent = text; return el;
+    }
+    function nodes() { return mode === 'overview' ? data.overview_nodes : data.nodes; }
+    function edges() { return mode === 'overview' ? data.overview_edges : data.edges; }
+    function transform() {
+      $('world').setAttribute('transform', `translate(${view.x},${view.y}) scale(${view.scale})`);
+      $('zoomValue').textContent = `${Math.round(view.scale * 100)}%`;
+    }
+    function fit() {
+      if (!data) return;
+      const b = $('world').getBBox(), canvas = $('canvas').getBoundingClientRect();
+      const scale = Math.min((canvas.width - 50)/(b.width + 30), (canvas.height - 140)/(b.height + 30), 1);
+      view = {scale:Math.max(.12, scale), x:0, y:0};
+      view.x = (canvas.width - b.width * view.scale)/2 - b.x * view.scale;
+      view.y = 65 + (canvas.height - 140 - b.height * view.scale)/2 - b.y * view.scale;
+      transform();
+    }
+    function zoom(factor, x = $('canvas').clientWidth/2, y = $('canvas').clientHeight/2) {
+      const scale = Math.max(.12, Math.min(2.5, view.scale * factor));
+      view.x = x - (x - view.x) * scale/view.scale;
+      view.y = y - (y - view.y) * scale/view.scale;
+      view.scale = scale; transform();
+    }
+    function focus() {
+      if (!data) return;
+      const n = nodes().find(item => item.id === selected); if (!n) return;
+      const rect = $('canvas').getBoundingClientRect();
+      const scale = Math.min(1, rect.width/500);
+      view = {scale, x:rect.width/2 - (n.x + W/2)*scale, y:rect.height/2 - (n.y + H/2)*scale};
+      transform();
+    }
+    function route(a, b, index) {
+      const sx = a.x + W/2, sy = a.y + H/2, tx = b.x + W/2, ty = b.y + H/2;
+      const dx = tx - sx, dy = ty - sy, lane = 55 + index%4 * 18;
+      if (a.id === b.id) {
+        const x = a.x + W;
+        return {d:`M ${x} ${sy-25} C ${x+110} ${sy-90} ${x+110} ${sy+90} ${x} ${sy+25}`, x:x+105, y:sy};
+      }
+      if (Math.abs(dx) > 620 && Math.abs(dy) < 180) {
+        const y = dy >= 0 ? Math.min(a.y,b.y)-lane : Math.max(a.y,b.y)+H+lane;
+        const ay = dy >= 0 ? a.y : a.y+H, by = dy >= 0 ? b.y : b.y+H;
+        return {d:`M ${sx} ${ay} C ${sx} ${y} ${sx} ${y} ${sx+Math.sign(dx)*60} ${y} L ${tx-Math.sign(dx)*60} ${y} C ${tx} ${y} ${tx} ${y} ${tx} ${by}`, x:(sx+tx)/2, y:y-8};
+      }
+      if (Math.abs(dx) > Math.abs(dy)*1.25) {
+        const sign = Math.sign(dx), x0 = sx + sign*W/2, x1 = tx - sign*W/2;
+        const bend = Math.max(35, Math.abs(x1-x0)/2);
+        return {d:`M ${x0} ${sy} C ${x0+sign*bend} ${sy} ${x1-sign*bend} ${ty} ${x1} ${ty}`, x:(x0+x1)/2, y:(sy+ty)/2-8};
+      }
+      if (dy < 0 || Math.abs(dy) > 310) {
+        const right = dx >= 0, x = right ? Math.max(a.x,b.x)+W+lane : Math.min(a.x,b.x)-lane;
+        const x0 = right ? a.x+W : a.x, x1 = right ? b.x+W : b.x;
+        return {d:`M ${x0} ${sy} C ${x} ${sy} ${x} ${sy} ${x} ${sy+Math.sign(dy)*40} L ${x} ${ty-Math.sign(dy)*40} C ${x} ${ty} ${x} ${ty} ${x1} ${ty}`, x:x+(right?8:-8), y:(sy+ty)/2};
+      }
+      const sign = Math.sign(dy) || 1, y0 = sy + sign*H/2, y1 = ty - sign*H/2;
+      const bend = Math.max(35, Math.abs(y1-y0)/2);
+      return {d:`M ${sx} ${y0} C ${sx} ${y0+sign*bend} ${tx} ${y1-sign*bend} ${tx} ${y1}`, x:(sx+tx)/2+8, y:(y0+y1)/2};
+    }
+    function titleLines(label) {
+      const lines = [''];
+      for (const word of label.split(' ')) {
+        if ((lines[lines.length-1] + ' ' + word).trim().length > 26) lines.push(word);
+        else lines[lines.length-1] = (lines[lines.length-1] + ' ' + word).trim();
+      }
+      return lines;
+    }
+    function draw() {
+      if (!data) return;
+      const world = $('world'); world.replaceChildren();
+      const byId = new Map(nodes().map(n => [n.id, n]));
+      for (const [i, edge] of edges().entries()) {
+        const a = byId.get(edge.source), b = byId.get(edge.target);
+        const line = route(a,b,i);
+        const group = svg('g', {class:`edge ${edge.conditional?'conditional':''} ${edge.source===selected||edge.target===selected?'selected':''}`});
+        group.append(svg('title', {}, `${a.label} → ${b.label}${edge.label?': '+edge.label:''}`));
+        group.append(svg('path', {d:line.d, 'marker-end':'url(#arrow)'}));
+        if (edge.label) group.append(svg('text', {x:line.x,y:line.y,class:'edge-label','text-anchor':'middle'}, edge.label));
+        world.append(group);
+      }
+      for (const n of nodes()) {
+        const group = svg('g', {class:`node ${n.kind} ${n.status} ${n.id===selected?'selected':''}`,
+          transform:`translate(${n.x},${n.y})`, 'data-node':n.id, role:'button', tabindex:0,
+          'aria-label':`${n.label}, ${n.kind}, ${n.status}`});
+        group.append(svg('rect', {class:'card',width:W,height:H,rx:14}));
+        group.append(svg('line', {class:'accent', x1:2,y1:18,x2:2,y2:H-18}));
+        group.append(svg('text', {class:'node-kind',x:18,y:22,style:`fill:${colors[n.kind]}`}, {agent:'AI ROLE',tool:'TOOL',human:'HUMAN',control:'CONTROL'}[n.kind]));
+        group.append(svg('circle', {cx:W-18,cy:18,r:5,fill:colors[n.status]}));
+        const lines = titleLines(n.label);
+        for (const [i,line] of lines.entries()) group.append(svg('text', {class:'node-title',x:18,y:lines.length===1?59:49+i*24},line));
+        group.append(svg('text', {class:'node-subtitle',x:18,y:94}, n.members ? `${n.members.length} graph step${n.members.length===1?'':'s'}` : n.id));
+        group.addEventListener('click', () => { selected=n.id; draw(); details(); });
+        group.addEventListener('keydown', e => {if (e.key==='Enter'||e.key===' ') {e.preventDefault(); selected=n.id; draw(); details();}});
+        world.append(group);
+      }
+      transform();
+    }
+    function details() {
+      const n = nodes().find(item => item.id === selected); if (!n) return;
+      const members = data.nodes.filter(item => (n.members || [n.id]).includes(item.id));
+      $('detailTitle').textContent = n.label;
+      $('detailKind').className = `status ${n.status}`;
+      $('detailKind').textContent = `${n.kind === 'agent' ? 'AI role' : n.kind} · ${n.status === 'idle' ? 'No recorded execution' : n.status === 'completed' ? 'Ran' : n.status}`;
+      $('modeNote').textContent = mode==='overview'
+        ? 'Overview folds related steps into cards. Switch to exact graph nodes to see every tool and control route.'
+        : 'These nodes and connections come directly from the compiled LangGraph. Dashed lines are conditional routes.';
+      $('members').replaceChildren();
+      for (const item of members) {
+        const row = html('div','member');
+        row.append(html('strong','',item.label), html('span',`status ${item.status}`,`${item.kind} · ${item.status==='completed'?'ran':item.status}`),
+          html('p','note',item.description),html('code','',item.source));
+        $('members').append(row);
+      }
+      const s = data.summary;
+      $('countExplanation').textContent = `${s.main_roles_per_run} main roles per document. One writer is selected: Proposal or BRD. Optional revision adds 1 role. There are ${s.unique_role_implementations} distinct role implementations across both routes, and ${s.graph_steps} graph steps (${s.graph_nodes} including Start/End). Tools and human reviews are separate steps.`;
+      $('caseSummary').replaceChildren(); $('trace').replaceChildren();
+      if (!data.case) { $('caseSummary').textContent='Load a saved case to inspect its recorded progress. This viewer makes no model calls.'; return; }
+      $('caseSummary').append(html('strong','',`${(data.case.document_type || 'case').toUpperCase()} · ${data.case.status}`),
+        html('code','',data.case.thread_id),html('p','note',data.case.pending_steps.length ? 'Next saved steps: '+data.case.pending_steps.join(', ') : 'No steps pending.'));
+      const patterns = members.flatMap(item => item.trace_patterns).map(pattern => new RegExp(pattern));
+      for (const step of data.case.trace) $('trace').append(html('li',patterns.some(pattern=>pattern.test(step))?'match':'',step));
+    }
+    async function load(thread = '', resetView = false) {
+      const request = ++requestNumber;
+      $('loadCase').disabled = true; $('error').hidden = true;
+      try {
+        const response = await fetch('/api/agent/workflow' + (thread ? '?thread_id='+encodeURIComponent(thread) : ''));
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.detail || 'Could not load workflow.');
+        if (request !== requestNumber) return;
+        data = result; $('threadInput').value = thread;
+        const url = new URL(location.href);
+        if (thread) url.searchParams.set('thread_id',thread); else url.searchParams.delete('thread_id');
+        history.replaceState(null,'',url);
+        $('counts').replaceChildren(...[
+          `${data.summary.main_roles_per_run} main agents`, `${data.summary.parallel_specialists} parallel specialists`,
+          `${data.summary.graph_steps} graph steps`
+        ].map(label=>html('span','count',label)));
+        draw(); details(); if (resetView) requestAnimationFrame(fit);
+      } catch (error) {
+        if (request === requestNumber) { $('error').textContent=error.message; $('error').hidden=false; }
+      } finally { if (request === requestNumber) $('loadCase').disabled=false; }
+    }
+    function setMode(next) {
+      mode = next;
+      if (!data) return;
+      if (!nodes().some(n=>n.id===selected)) selected='supervisor';
+      $('overviewMode').setAttribute('aria-pressed',mode==='overview');
+      $('exactMode').setAttribute('aria-pressed',mode==='exact');
+      draw(); details(); fit();
+    }
+    function recent() { try { return localStorage.getItem('wooplix_agent_thread') || ''; } catch { return ''; } }
+    $('overviewMode').onclick=()=>setMode('overview'); $('exactMode').onclick=()=>setMode('exact');
+    $('caseForm').onsubmit=e=>{e.preventDefault(); load($('threadInput').value.trim());};
+    $('architecture').onclick=()=>load('');
+    $('recentCase').onclick=()=>{const thread=recent(); if (thread) load(thread); else { $('error').textContent='No saved case in this browser yet. Generate a document in the workspace first.'; $('error').hidden=false; }};
+    $('fit').onclick=fit; $('focus').onclick=focus;
+    $('zoomIn').onclick=()=>zoom(1.25); $('zoomOut').onclick=()=>zoom(.8);
+    $('canvas').addEventListener('wheel',e=>{e.preventDefault(); const r=$('canvas').getBoundingClientRect(); zoom(Math.exp(-e.deltaY*.002),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+    $('canvas').addEventListener('pointerdown',e=>{
+      if (e.button!==0 || e.target.closest('.node')) return;
+      drag={x:e.clientX,y:e.clientY,vx:view.x,vy:view.y}; $('canvas').setPointerCapture(e.pointerId);
+    });
+    $('canvas').addEventListener('pointermove',e=>{if(drag){view.x=drag.vx+e.clientX-drag.x; view.y=drag.vy+e.clientY-drag.y; transform();}});
+    $('canvas').addEventListener('pointerup',()=>drag=null); $('canvas').addEventListener('pointercancel',()=>drag=null);
+    $('canvas').addEventListener('keydown',e=>{
+      if (e.target!==$('canvas')) return;
+      if (e.key==='+'||e.key==='=') zoom(1.25); else if(e.key==='-') zoom(.8);
+      else if(e.key==='0') fit(); else if(e.key.startsWith('Arrow')) {
+        e.preventDefault(); view.x += e.key==='ArrowLeft'?60:e.key==='ArrowRight'?-60:0;
+        view.y += e.key==='ArrowUp'?60:e.key==='ArrowDown'?-60:0; transform();
+      }
+    });
+    window.addEventListener('resize',fit);
+    (async()=>{
+      const thread=new URLSearchParams(location.search).get('thread_id') || recent();
+      await load('',true);
+      if (thread) await load(thread);
+    })();
+  </script>
+</body>
+</html>

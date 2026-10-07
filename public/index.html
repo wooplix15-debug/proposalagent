@@ -1,0 +1,910 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f8fc">
+  <title>Wooplix Multi-Agent Proposal Workspace</title>
+  <link rel="icon" type="image/png" href="/wooplix_logo.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --ink: #17243a;
+      --muted: #6e7d95;
+      --line: #e3e9f2;
+      --blue: #2d5ccb;
+      --blue-hover: #1e4bb8;
+      --accent-soft: #eef3ff;
+      --accent-line: #b9c9f3;
+      --navy: #101e38;
+      --paper: #ffffff;
+      --bg: #f8fafc;
+      --green: #118462;
+      --green-bg: #eafaf1;
+      --card-shadow: 0 10px 30px rgba(18, 38, 71, 0.06);
+    }
+    body[data-document="brd"] {
+      --blue: #0f766e;
+      --blue-hover: #115e59;
+      --accent-soft: #eaf7f4;
+      --accent-line: #99d6cc;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "DM Sans", -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 20px;
+    }
+    input, textarea, select { font-family: inherit; font-size: inherit; }
+    .container {
+      width: 100%;
+      max-width: 1120px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      gap: 26px;
+      align-items: start;
+    }
+    .sidebar {
+      position: sticky;
+      top: 24px;
+      padding: 18px 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: var(--card-shadow);
+    }
+    .sidebar-title {
+      margin: 0 8px 12px;
+      color: #55667e;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .6px;
+      text-transform: uppercase;
+    }
+    .document-options { display:grid; grid-template-columns:1fr; gap:7px; }
+    .document-option {
+      display:block; width:100%; padding:12px 12px 12px 26px; position:relative;
+      border:1px solid transparent; border-radius:10px;
+      background:transparent; color:var(--ink);
+      text-align:left; cursor:pointer; font:inherit;
+    }
+    .document-option strong { display:block; margin-bottom:5px; font-size:13px; }
+    .document-option span { display:block; color:var(--muted); font-size:11px; line-height:1.45; }
+    .document-option:hover { background:#f7f9fd; }
+    .document-option::before { content:""; position:absolute; left:11px; top:17px; width:6px; height:6px; border-radius:50%; background:#2d5ccb; }
+    .document-option[data-document="brd"]::before { background:#0f766e; }
+    .document-option.active { border-color:var(--accent-line); background:var(--accent-soft); color:var(--blue); }
+    .workspace { min-width:0; width:100%; }
+    @media (max-width: 760px) {
+      .container { grid-template-columns:1fr; gap:14px; }
+      .sidebar { position:static; padding:12px; }
+      .document-options { grid-template-columns:1fr 1fr; }
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .brand img {
+      width: 135px;
+      height: auto;
+      object-fit: contain;
+    }
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--blue);
+      background: var(--accent-soft);
+      padding: 6px 12px;
+      border-radius: 99px;
+      letter-spacing: 0.2px;
+    }
+    .intro {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+    .intro h1 {
+      font-family: "Manrope", sans-serif;
+      font-weight: 800;
+      font-size: clamp(26px, 4vw, 34px);
+      letter-spacing: -1px;
+      color: var(--navy);
+      margin-bottom: 8px;
+    }
+    .intro p {
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-top: 3px solid var(--blue);
+      border-radius: 18px;
+      box-shadow: var(--card-shadow);
+      padding: 28px 28px 30px;
+    }
+    .drop-zone {
+      border: 2px dashed #cad5e5;
+      background: #fafbfd;
+      border-radius: 14px;
+      padding: 36px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .drop-zone:hover, .drop-zone.over {
+      border-color: var(--blue);
+      background: var(--accent-soft);
+    }
+    .drop-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--accent-soft);
+      color: var(--blue);
+      margin: 0 auto 14px;
+      display: grid;
+      place-items: center;
+    }
+    .drop-icon svg {
+      width: 24px;
+      height: 24px;
+    }
+    .drop-zone h3 {
+      font-family: "Manrope", sans-serif;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+    .drop-zone p {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 16px;
+    }
+    .browse-btn {
+      display: inline-block;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #273b5a;
+      font-family: "DM Sans", sans-serif;
+      font-weight: 600;
+      font-size: 12px;
+      border-radius: 8px;
+      padding: 8px 16px;
+      cursor: pointer;
+      transition: 0.18s;
+    }
+    .browse-btn:hover {
+      background: #f1f5f9;
+    }
+    .file-list {
+      margin-top: 14px;
+      display: grid;
+      gap: 8px;
+    }
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border: 1px solid #e7ecf3;
+      border-radius: 10px;
+      padding: 10px 14px;
+      background: #ffffff;
+    }
+    .file-ext {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: var(--accent-soft);
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+      font-family: "Manrope", sans-serif;
+      font-weight: 700;
+      font-size: 9px;
+      text-transform: uppercase;
+      flex-shrink: 0;
+    }
+    .file-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .file-details strong {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--ink);
+    }
+    .file-details span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .remove-btn {
+      border: 0;
+      background: none;
+      color: #9aa7b9;
+      font-size: 20px;
+      cursor: pointer;
+      padding: 2px 6px;
+      line-height: 1;
+    }
+    .remove-btn:hover {
+      color: #d33c41;
+    }
+    .format-picker {
+      margin: 22px 0 16px;
+    }
+    .format-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 700;
+      color: #55667e;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      margin-bottom: 8px;
+    }
+    .format-options {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+    .format-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 8px;
+      border: 1.5px solid #dbe2ed;
+      border-radius: 10px;
+      background: #fafbfd;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 600;
+      color: #4b5d78;
+      transition: all 0.18s;
+      user-select: none;
+    }
+    .format-btn:hover {
+      border-color: #83a0e6;
+      background: #f4f7fd;
+    }
+    .format-btn.active {
+      border-color: var(--blue);
+      background: var(--accent-soft);
+      color: var(--blue);
+    }
+    /* Tab bar */
+    .tab-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid #dbe2ed;
+      border-radius: 10px;
+      background: #fafbfd;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4b5d78;
+      font-family: "Inter", sans-serif;
+      transition: all 0.18s;
+    }
+    .tab-btn:hover { border-color: #83a0e6; background: #f4f7fd; }
+    .tab-btn.active {
+      border-color: var(--blue);
+      background: var(--accent-soft);
+      color: var(--blue);
+    }
+    /* Text textarea */
+    #requirementText {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 14px 16px;
+      border: 1.5px solid #dbe2ed;
+      border-radius: 12px;
+      font-size: 13px;
+      font-family: "Inter", sans-serif;
+      color: #2a3752;
+      line-height: 1.6;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.18s;
+      background: #fafbfd;
+      margin-bottom: 4px;
+    }
+    #requirementText:focus { border-color: var(--blue); }
+    #requirementText::placeholder { color: #a5b0c5; }
+    .submit-btn {
+      width: 100%;
+      background: var(--blue);
+      color: #fff;
+      border: 0;
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-family: "DM Sans", sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 14px rgba(45, 92, 203, 0.22);
+      margin-top: 6px;
+    }
+    .submit-btn:hover:not(:disabled) {
+      background: var(--blue-hover);
+      transform: translateY(-1px);
+    }
+    .submit-btn:disabled {
+      background: #b5c3dd;
+      box-shadow: none;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .status-msg {
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+    .result-box {
+      margin-top: 18px;
+      padding: 18px;
+      background: var(--green-bg);
+      border: 1.5px solid #b7e8d0;
+      border-radius: 12px;
+      animation: fadeIn 0.25s ease;
+    }
+    .result-badge {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--green);
+      background: #d4f3e3;
+      padding: 3px 9px;
+      border-radius: 99px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+    .result-client {
+      font-family: "Manrope", sans-serif;
+      font-size: 16px;
+      font-weight: 800;
+      color: #123d2f;
+      margin-bottom: 4px;
+    }
+    .result-file {
+      font-size: 11px;
+      color: #3b6b58;
+      font-family: monospace;
+      word-break: break-all;
+      margin-bottom: 12px;
+    }
+    .download-again-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--green);
+      color: #fff;
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 700;
+      transition: 0.18s;
+    }
+    .download-again-btn:hover {
+      background: #0d6349;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: none; }
+    }
+    .footer {
+      text-align: center;
+      color: #9aa6b8;
+      font-size: 11px;
+      margin-top: 32px;
+    }
+    @media (max-width: 540px) {
+      .document-options { grid-template-columns: 1fr; }
+      .card { padding: 20px 16px; }
+      .format-options { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body data-document="proposal">
+  <div class="container">
+    <aside class="sidebar">
+      <div class="sidebar-title">Create a document</div>
+      <nav class="document-options" aria-label="Choose document type">
+        <button type="button" class="document-option active" data-document="proposal" aria-pressed="true">
+          <strong>Project Proposal</strong>
+          <span>Scope, timeline and requested quote items.</span>
+        </button>
+        <button type="button" class="document-option" data-document="brd" aria-pressed="false">
+          <strong>Business Requirements Document</strong>
+          <span>Detailed requirements, data, integrations, rules and open decisions.</span>
+        </button>
+      </nav>
+      <div class="sidebar-title" style="margin-top:22px">Inspect workflow</div>
+      <a href="/workflow" id="workflowLink" class="browse-btn" target="_blank" rel="noopener" style="display:block;text-decoration:none;text-align:center">Visual agent workflow →</a>
+      <p style="margin:10px 8px 0;font-size:11px;color:var(--muted);line-height:1.5">Explore the agent connections and your saved case progress.</p>
+    </aside>
+    <main class="workspace">
+    <header class="header">
+      <div class="brand">
+        <img src="/wooplix_logo.png" alt="Wooplix Technologies">
+      </div>
+      <span class="badge" id="documentBadge" aria-live="polite">Multi-agent proposal workspace</span>
+    </header>
+
+    <div class="intro">
+      <h1 id="documentTitle">Create a project proposal.</h1>
+      <p id="documentDescription">Define the scope, timeline and commercial items for your client.</p>
+    </div>
+
+    <div class="card">
+
+      <!-- Tab switcher -->
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tabFile">📁 Upload File</button>
+        <button class="tab-btn" id="tabText">✏️ Paste Text</button>
+      </div>
+
+      <!-- File upload panel -->
+      <div id="panelFile">
+        <div class="drop-zone" id="dropZone">
+          <div class="drop-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15.5v3A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5v-3"/>
+            </svg>
+          </div>
+          <h3>Drop your requirement file here</h3>
+          <p>Supports PDF, DOC, DOCX, TXT or Markdown · Max 4 MB</p>
+          <button type="button" class="browse-btn" id="browseBtn">Choose File</button>
+        </div>
+        <input id="filePicker" type="file" accept=".pdf,.doc,.docx,.txt,.md" hidden>
+        <div class="file-list" id="fileList"></div>
+      </div>
+
+      <!-- Text paste panel -->
+      <div id="panelText" style="display:none;">
+        <textarea
+          id="requirementText"
+          placeholder="Paste your client requirement here…&#10;&#10;Example: Client needs a mobile app for inventory management with barcode scanning, real-time stock updates, and reporting dashboard for 50 warehouse users."
+          rows="8"
+        ></textarea>
+      </div>
+
+      <!-- File format picker -->
+      <div class="format-picker">
+        <label class="format-label">File format</label>
+        <div class="format-options">
+          <div class="format-btn active" data-fmt="pdf">📄 PDF Document</div>
+          <div class="format-btn" data-fmt="docx">📝 Word (DOCX)</div>
+          <div class="format-btn" data-fmt="zip">📦 All Files (ZIP)</div>
+        </div>
+      </div>
+
+      <button class="submit-btn" id="generateBtn" disabled>Analyze requirements →</button>
+      <section id="reviewPanel" style="display:none;margin-top:20px" aria-live="polite">
+        <h3>Review the scope and answer what you can</h3><div id="reviewContent"></div>
+        <button class="submit-btn" id="finishBtn">Run specialist agents with these answers →</button>
+      </section>
+      <section id="draftPanel" hidden style="margin-top:20px">
+        <h3>Review the multi-agent draft</h3>
+        <p style="margin:8px 0;color:var(--muted)">Check proposed designs, risks and open decisions before downloading.</p>
+        <div id="draftContent"></div>
+        <details style="margin:12px 0"><summary>Edit structured draft (advanced)</summary>
+          <textarea id="draftEditor" aria-label="Structured document JSON" rows="12" style="width:100%;margin-top:8px"></textarea>
+        </details>
+        <label for="reviewerName">Reviewer name</label>
+        <input id="reviewerName" value="Local reviewer" style="width:100%;padding:10px;margin:8px 0" maxlength="200">
+        <button type="button" id="approveBtn" class="submit-btn">Accept draft and download →</button>
+        <button type="button" id="cancelBtn" class="browse-btn" style="margin-top:10px">Cancel this draft</button>
+      </section>
+      <details id="agentTracePanel" hidden style="margin-top:16px">
+        <summary>Agent workflow trace</summary><ol id="agentTrace" style="padding:16px 24px"></ol>
+      </details>
+      <div class="status-msg" id="statusMsg" role="status" aria-live="polite"></div>
+      <button type="button" id="retryBtn" class="browse-btn" hidden style="margin-top:12px">Retry saved agent steps</button>
+
+      <div class="result-box" id="resultBox" style="display:none;">
+        <span class="result-badge">✓ Proposal Ready</span>
+        <div class="result-client" id="resultClient">Client Name</div>
+        <div class="result-file" id="resultFile">Wooplix_Proposal.pdf</div>
+        <a id="downloadAgainBtn" class="download-again-btn" href="#" download>Download Again</a>
+      </div>
+    </div>
+
+    <footer class="footer">
+      © Wooplix Technologies Private Limited
+    </footer>
+    </main>
+  </div>
+
+  <script>
+    const filePicker = document.querySelector('#filePicker');
+    const dropZone = document.querySelector('#dropZone');
+    const browseBtn = document.querySelector('#browseBtn');
+    const fileList = document.querySelector('#fileList');
+    const generateBtn = document.querySelector('#generateBtn');
+    const statusMsg = document.querySelector('#statusMsg');
+    const resultBox = document.querySelector('#resultBox');
+    const resultClient = document.querySelector('#resultClient');
+    const resultFile = document.querySelector('#resultFile');
+    const downloadAgainBtn = document.querySelector('#downloadAgainBtn');
+    const requirementText = document.querySelector('#requirementText');
+    const panelFile = document.querySelector('#panelFile');
+    const panelText = document.querySelector('#panelText');
+    const tabFile = document.querySelector('#tabFile');
+    const tabText = document.querySelector('#tabText');
+
+    let selectedFile = null;
+    let selectedFormat = 'pdf';
+    let selectedDocument = 'proposal';
+    let activeTab = 'file';
+
+    // Tab switching
+    tabFile.onclick = () => {
+      invalidateReview();
+      activeTab = 'file';
+      tabFile.classList.add('active');
+      tabText.classList.remove('active');
+      panelFile.style.display = '';
+      panelText.style.display = 'none';
+      updateSubmitState();
+    };
+    tabText.onclick = () => {
+      invalidateReview();
+      activeTab = 'text';
+      tabText.classList.add('active');
+      tabFile.classList.remove('active');
+      panelText.style.display = '';
+      panelFile.style.display = 'none';
+      updateSubmitState();
+    };
+
+    requirementText.oninput = updateSubmitState;
+
+    function updateSubmitState() {
+      requirementText.disabled=busy;filePicker.disabled=busy;
+      tabFile.disabled=busy;tabText.disabled=busy;dropZone.inert=busy;
+      document.querySelector('#draftEditor').disabled=busy;
+      document.querySelector('#reviewerName').disabled=busy;
+      document.querySelector('#cancelBtn').disabled=busy;
+      if (activeTab === 'file') {
+        generateBtn.disabled = busy || !selectedFile;
+      } else {
+        generateBtn.disabled = busy || !requirementText.value.trim();
+      }
+    }
+
+    // Format picker
+    document.querySelectorAll('.format-btn').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedFormat = btn.dataset.fmt;
+      };
+    });
+
+    document.querySelectorAll('.document-option').forEach(btn => {
+      btn.onclick = () => {
+        if (busy || selectedDocument === btn.dataset.document) return;
+        selectedDocument = btn.dataset.document;
+        const isBrd = selectedDocument === 'brd';
+        document.body.dataset.document = selectedDocument;
+        invalidateReview();
+        document.querySelector('#documentBadge').textContent = isBrd ? 'Multi-agent BRD workspace' : 'Multi-agent proposal workspace';
+        document.querySelector('#documentTitle').textContent = isBrd
+          ? 'Create a business requirements document.' : 'Create a project proposal.';
+        document.querySelector('#documentDescription').textContent = isBrd
+          ? 'Detail the processes, fields, business rules and approvals for your project.'
+          : 'Define the scope, timeline and commercial items for your client.';
+        document.title = isBrd ? 'Wooplix Business Requirements Document' : 'Wooplix Project Proposal';
+        resultBox.style.display = 'none';
+        statusMsg.textContent = '';
+        document.querySelectorAll('.document-option').forEach(option => {
+          const active = option === btn;
+          option.classList.toggle('active', active);
+          option.setAttribute('aria-pressed', String(active));
+        });
+        finishBtn.textContent = 'Run specialist agents with these answers →';
+        resultBox.querySelector('.result-badge').textContent = selectedDocument === 'brd'
+          ? '✓ Business Requirements Document Ready' : '✓ Proposal Ready';
+      };
+    });
+
+    // File upload handlers
+    browseBtn.onclick = (e) => { e.stopPropagation(); filePicker.click(); };
+    dropZone.onclick = (e) => { if (e.target !== browseBtn) filePicker.click(); };
+    filePicker.onchange = () => { if (filePicker.files && filePicker.files[0]) setFile(filePicker.files[0]); };
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('over'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('over');
+    dropZone.ondrop = (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('over');
+      if (e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+    };
+
+    function setFile(f) {
+      selectedFile = f;
+      renderFile();
+    }
+
+    function renderFile() {
+      fileList.innerHTML = '';
+      if (!selectedFile) { updateSubmitState(); return; }
+      const ext = selectedFile.name.split('.').pop();
+      const item = document.createElement('div');
+      item.className = 'file-item';
+      item.innerHTML = `
+        <div class="file-ext">${ext.toUpperCase()}</div>
+        <div class="file-details">
+          <strong></strong>
+          <span>${(selectedFile.size / 1024).toFixed(0)} KB</span>
+        </div>
+        <button class="remove-btn" title="Remove file" aria-label="Remove file">×</button>
+      `;
+      item.querySelector('strong').textContent = selectedFile.name;
+      item.querySelector('.remove-btn').onclick = (e) => {
+        e.stopPropagation();
+        invalidateReview();
+        selectedFile = null;
+        filePicker.value = '';
+        renderFile();
+      };
+      fileList.appendChild(item);
+      updateSubmitState();
+    }
+
+    let inputRevision = 0;
+    let reviews = [];
+    let busy = false;
+    let resultUrl = null;
+    let activeThread = null;
+    let originalDraft = '';
+    const reviewPanel = document.querySelector('#reviewPanel');
+    const reviewContent = document.querySelector('#reviewContent');
+    const finishBtn = document.querySelector('#finishBtn');
+    function invalidateReview() {
+      inputRevision++; reviews=[]; activeThread=null;
+      reviewPanel.style.display='none'; resultBox.style.display='none';
+      document.querySelector('#draftPanel').hidden=true;
+      document.querySelector('#agentTracePanel').hidden=true;
+      document.querySelector('#retryBtn').hidden=true;
+      localStorage.removeItem('wooplix_agent_thread');
+    }
+    for (const id of ['requirementText','filePicker']) {
+      document.getElementById(id).addEventListener('input', invalidateReview);
+      document.getElementById(id).addEventListener('change', invalidateReview);
+    }
+    const previousSetFile = setFile;
+    setFile = f => { invalidateReview(); previousSetFile(f); };
+    function element(tag, text, parent) {
+      const node=document.createElement(tag); node.textContent=text;
+      if(parent) parent.appendChild(node); return node;
+    }
+    function showReviews() {
+      reviewContent.replaceChildren();
+      reviews.forEach((review,index)=>{
+        const box=element('section','',reviewContent); box.style.margin='16px 0';
+        if (review.source !== 'Pasted requirement') element('h4', review.source, box);
+        element('p',review.summary,box);
+        if (review.requirement_sections && review.requirement_sections.length) {
+          element('h4','Scope included',box);
+          const list=element('ul','',box);
+          review.requirement_sections.forEach(s=>element('li',s.product,list));
+        }
+        if(review.duration_estimates && review.duration_estimates.length){
+          element('h4','Estimated working days',box);
+          review.duration_estimates.forEach(t=>{
+            const basis=t.kind==='market_estimate'?'published planning estimate':'past delivery';
+            element('p',`${t.product}: ${t.days} working days (based on ${basis})`,box);
+          });
+          element('p','These are planning estimates. The final schedule depends on the confirmed scope.',box);
+        } else {
+          element('p','No matching delivery time is available. Confirm the timeline during discovery.',box);
+        }
+        review.questions.forEach(q=>{
+          const field=element('fieldset','',box); field.style.cssText='margin:12px 0;padding:12px;border:1px solid #dbe2ed;border-radius:8px';
+          element('legend',q.question,field);element('p',q.reason,field);
+          const select=element('select','',field);select.style.cssText='width:100%;padding:8px;margin-top:8px';
+          select.id=`answer-${index}-${q.id}`;select.setAttribute('aria-label',q.question);
+          element('option','Choose an answer',select).value='';
+          q.options.forEach(o=>{element('option',o,select).value=o;});
+          element('option','My answer is different',select).value='__other__';
+          element('option',"I'll answer later",select).value='Leave open for discovery';
+          const other=element('textarea','',field);other.id=`other-${index}-${q.id}`;
+          other.placeholder='Write your answer';other.maxLength=4000;other.hidden=true;
+          other.setAttribute('aria-label','Other answer: '+q.question);other.style.cssText='width:100%;padding:8px;margin-top:8px';
+          select.onchange=()=>{other.hidden=select.value!=='__other__';};
+        });
+      });
+      reviewPanel.style.display='block';
+    }
+    function showTrace(trace) {
+      const list=document.querySelector('#agentTrace');list.replaceChildren();
+      (trace||[]).forEach(step=>element('li',step,list));
+      document.querySelector('#agentTracePanel').hidden=!(trace||[]).length;
+    }
+    function previewTable(title, columns, rows, parent) {
+      if(!rows.length)return;
+      element('h4',title,parent).style.margin='16px 0 8px';
+      const wrap=element('div','',parent);wrap.style.overflowX='auto';
+      const table=element('table','',wrap);table.style.cssText='width:100%;border-collapse:collapse;font-size:12px';
+      const heading=element('tr','',table);
+      columns.forEach(column=>{const cell=element('th',column,heading);cell.style.cssText='padding:8px;border:1px solid #dbe2ed;text-align:left';});
+      rows.forEach(row=>{const tr=element('tr','',table);row.forEach(value=>{const td=element('td',String(value??''),tr);td.style.cssText='padding:8px;border:1px solid #dbe2ed;vertical-align:top;white-space:pre-wrap';});});
+    }
+    function showDraft(payload) {
+      const doc=payload.document;
+      const content=document.querySelector('#draftContent');content.replaceChildren();
+      element('p',doc.project_introduction||doc.summary||'',content);
+      const scope=doc.scope||[];
+      scope.forEach(module=>previewTable(module.product,['Work area','Tasks'],
+        (module.areas||[]).map(area=>[area.area,(area.tasks||[]).join('\n')]),content));
+      previewTable('Source requirements',['ID','Area','Requirement'],
+        (doc.requirements||[]).map(row=>[row.id,row.area,row.requirement]),content);
+      (doc.specification_tables||[]).forEach(table=>previewTable(table.title+
+        (table.origin==='proposed'?' — Proposed for review':''),table.columns,table.rows,content));
+      previewTable('Solution recommendations — Proposed for review',['Product','Design','Reason'],
+        (doc.solution_recommendations||[]).map(row=>[row.product,row.design,row.reason]),content);
+      previewTable('Risks and dependencies',['Risk','Impact','Mitigation'],
+        (doc.risks_and_dependencies||[]).map(row=>[row.description,row.impact,row.mitigation]),content);
+      previewTable('Open decisions',['Question','Why'],
+        (doc.planning_decisions||[]).map(row=>[row.question,row.reason]),content);
+      previewTable('Indicative timeline',['Work area','Duration'],
+        ((doc.timeline||{}).phases||[]).map(row=>[row.phase,row.duration||'To be confirmed']),content);
+      previewTable('Commercial items',['Item','Amount'],
+        ((doc.commercials||{}).items||[]).map(row=>[row.item,row.amount||'To be quoted']),content);
+      const warnings=(payload.quality_report||{}).issues||[];
+      previewTable('Quality review notes',['Severity','Reason'],warnings.map(row=>[row.severity,row.reason]),content);
+      originalDraft=JSON.stringify(doc,null,2);document.querySelector('#draftEditor').value=originalDraft;
+      document.querySelector('#draftPanel').hidden=false;reviewPanel.style.display='none';
+    }
+    function receiveState(data) {
+      activeThread=data.thread_id;localStorage.setItem('wooplix_agent_thread',activeThread);showTrace(data.trace);
+      document.querySelector('#retryBtn').hidden=!data.retryable;
+      if(data.retryable){reviewPanel.style.display='none';statusMsg.textContent='Some agent steps are saved but incomplete. Retry when the model service is available.';}
+      if(data.stage==='clarification'){
+        reviews=[{...data.payload,source:data.payload.source||'Pasted requirement'}];showReviews();
+        statusMsg.textContent='Review the requirements and answer the questions.';
+      }else if(data.stage==='draft_review'){
+        showDraft(data.payload);statusMsg.textContent='Specialists and the quality critic finished. Review the draft below.';
+      }else if(data.status==='cancelled'){
+        document.querySelector('#draftPanel').hidden=true;statusMsg.textContent='Draft cancelled.';
+      }
+    }
+    async function downloadReviewed() {
+      const res=await fetch(`/api/agent/export/${encodeURIComponent(activeThread)}?format=${selectedFormat}`);
+      if(!res.ok){const data=await res.json();throw new Error(data.detail||'Export failed.');}
+      const filename=res.headers.get('x-proposal-filename')||'Wooplix_Document.docx';
+      const blob=await res.blob();if(resultUrl)URL.revokeObjectURL(resultUrl);resultUrl=URL.createObjectURL(blob);
+      const a=element('a','',document.body);a.href=resultUrl;a.download=filename;a.click();a.remove();
+      resultFile.textContent=filename;resultClient.textContent=res.headers.get('x-proposal-client')||'Project';
+      downloadAgainBtn.href=resultUrl;downloadAgainBtn.download=filename;resultBox.style.display='block';
+      statusMsg.textContent='Reviewed document downloaded. The case and agent findings are saved in SQLite.';
+    }
+    generateBtn.onclick = async () => {
+      if(busy) return;
+      const fd=new FormData();
+      if(activeTab==='file' && selectedFile) fd.append('files',selectedFile,selectedFile.name);
+      else if(activeTab==='text' && requirementText.value.trim()) fd.append('text',requirementText.value.trim());
+      else return;
+      fd.append('document_type',selectedDocument);
+      busy=true;generateBtn.disabled=true;invalidateReview();
+      updateSubmitState();
+      const analyzedRevision = inputRevision;
+      statusMsg.textContent='Analyzing your requirements…';
+      try {
+        const res=await fetch('/api/agent/start',{method:'POST',body:fd});
+        const data=await res.json();if(!res.ok)throw new Error(data.detail||'Analysis failed.');
+        if (analyzedRevision !== inputRevision) throw new Error('The input changed during analysis. Analyze the latest input again.');
+        receiveState(data);
+      } catch(err){statusMsg.textContent=err.message;}
+      finally{busy=false;updateSubmitState();}
+    };
+    finishBtn.onclick=async()=>{
+      if(busy)return;
+      const answers={};
+      for(let i=0;i<reviews.length;i++){
+        for(const q of reviews[i].questions){
+          const choice=document.getElementById(`answer-${i}-${q.id}`).value;
+          const answer=choice==='__other__'?document.getElementById(`other-${i}-${q.id}`).value.trim():choice;
+          if(!answer){statusMsg.textContent='Answer each question or choose Leave open.';return;}
+          answers[q.id]=answer;
+        }
+      }
+      busy=true;finishBtn.disabled=true;generateBtn.disabled=true;
+      updateSubmitState();
+      statusMsg.textContent='Supervisor and parallel specialists are analyzing the project; the writer and critic will follow…';
+      try {
+        const res=await fetch('/api/agent/resume',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({thread_id:activeThread,response:{answers}})});
+        const data=await res.json();if(!res.ok)throw new Error(data.detail||'Generation failed.');
+        receiveState(data);
+      }catch(err){
+        statusMsg.textContent=err.message;
+        document.querySelector('#retryBtn').hidden=false;
+        reviewPanel.style.display='none';
+      }
+      finally{busy=false;finishBtn.disabled=false;updateSubmitState();}
+    };
+    document.querySelector('#approveBtn').onclick=async()=>{
+      if(busy)return;
+      busy=true;updateSubmitState();
+      const approve=document.querySelector('#approveBtn');approve.disabled=true;
+      try{
+        const edited=document.querySelector('#draftEditor').value;
+        const response={decision:'accept',reviewer:document.querySelector('#reviewerName').value.trim()||'Local reviewer'};
+        if(edited!==originalDraft)response.edited_document=JSON.parse(edited);
+        statusMsg.textContent='Validating the reviewed draft and preparing the download…';
+        const res=await fetch('/api/agent/resume',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({thread_id:activeThread,response})});
+        const data=await res.json();if(!res.ok)throw new Error(data.detail||'Review failed.');
+        showTrace(data.trace);await downloadReviewed();document.querySelector('#draftPanel').hidden=true;
+      }catch(err){statusMsg.textContent=err.message;document.querySelector('#retryBtn').hidden=false;}
+      finally{busy=false;approve.disabled=false;updateSubmitState();}
+    };
+    document.querySelector('#cancelBtn').onclick=async()=>{
+      if(busy)return;busy=true;updateSubmitState();
+      try{
+        const res=await fetch('/api/agent/resume',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({thread_id:activeThread,response:{decision:'cancel',reviewer:'Local reviewer'}})});
+        const data=await res.json();if(!res.ok)throw new Error(data.detail||'Cancel failed.');receiveState(data);
+      }catch(err){statusMsg.textContent=err.message;}finally{busy=false;updateSubmitState();}
+    };
+    const savedThread=localStorage.getItem('wooplix_agent_thread');
+    document.querySelector('#retryBtn').onclick=async()=>{
+      if(busy||!activeThread)return;busy=true;updateSubmitState();
+      document.querySelector('#retryBtn').disabled=true;
+      try{
+        statusMsg.textContent='Continuing saved agent steps…';
+        const res=await fetch('/api/agent/retry',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({thread_id:activeThread})});
+        const data=await res.json();if(!res.ok)throw new Error(data.detail||'Retry failed.');
+        receiveState(data);
+        if(data.status==='reviewed'){await downloadReviewed();document.querySelector('#draftPanel').hidden=true;}
+      }catch(err){statusMsg.textContent=err.message;}
+      finally{busy=false;document.querySelector('#retryBtn').disabled=false;updateSubmitState();}
+    };
+    if(savedThread){
+      fetch(`/api/agent/state/${encodeURIComponent(savedThread)}`).then(res=>res.ok?res.json():null).then(data=>{
+        if(data&&(data.stage||data.retryable)){
+          const button=document.querySelector(`.document-option[data-document="${data.document_type}"]`);
+          if(button)button.click();receiveState(data);
+        }else if(data&&data.status==='reviewed'){
+          const button=document.querySelector(`.document-option[data-document="${data.document_type}"]`);
+          if(button)button.click();receiveState(data);
+          statusMsg.textContent='Your reviewed case is saved. Download it again below.';
+          downloadAgainBtn.href=`/api/agent/export/${encodeURIComponent(savedThread)}?format=docx`;
+          resultClient.textContent='Saved reviewed case';resultFile.textContent='Word document';resultBox.style.display='block';
+        }
+      }).catch(()=>{});
+    }
+  </script>
+</body>
+</html>
